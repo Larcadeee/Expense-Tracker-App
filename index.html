@@ -15,6 +15,8 @@
             background: #f8fafc;
             color: #0f172a;
             overflow-x: hidden;
+            margin: 0;
+            padding: 0;
         }
         .mesh-gradient {
             position: fixed;
@@ -43,7 +45,6 @@
             background: #94a3b8;
         }
 
-        /* Print optimization styles */
         @media print {
             header, footer, button, .no-print, nav, .mesh-gradient {
                 display: none !important;
@@ -102,5 +103,6 @@
 <body>
     <div class="mesh-gradient"></div>
     <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -2,9 +2,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, AIInsight } from "../types";
 
+const getApiKey = () => {
+  try {
+    return (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
-  // Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return {
+      analysis: "API Key not found. Please set the API_KEY environment variable.",
+      forecast: "Unavailable",
+      recommendations: ["Ensure your environment variables are configured correctly."]
+    };
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const simplifiedData = transactions.map(t => ({
     date: t.date,

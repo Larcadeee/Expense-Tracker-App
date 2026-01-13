@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Wallet as WalletIcon, ArrowRight, User as UserIcon, Mail, Lock, Loader2 } from 'lucide-react';
+import { Wallet as WalletIcon, ArrowRight, User as UserIcon, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -15,11 +15,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
@@ -31,28 +33,34 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         if (loginError) throw loginError;
       } else {
         // Sign up the user
-        // We pass 'name' and 'password' in 'options.data' so our 
-        // Database Trigger (handle_new_user) can grab them and create the profile.
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               name: name || 'New User',
-              password: password // For the "Account Profile" display
+              password: password
             }
           }
         });
 
         if (signUpError) throw signUpError;
         
-        if (signUpData.user && signUpData.session === null) {
-          setError("Account created! Please check your email or ensure 'Confirm Email' is OFF in Supabase.");
+        // If session is null, Supabase still has "Confirm Email" turned ON
+        if (signUpData.user && !signUpData.session) {
+          setError("Confirmation Required: Please go to Supabase -> Auth -> Providers -> Email and turn 'Confirm sign up' to OFF, then DELETE this user and try again.");
+        } else if (signUpData.user && signUpData.session) {
+          setSuccess("Account created successfully! Redirecting...");
+          // The App.tsx listener will handle the redirect automatically
         }
       }
     } catch (err: any) {
       console.error("Auth process error:", err);
-      setError(err.message || 'An error occurred during authentication');
+      if (err.message?.includes('Database error saving new user')) {
+        setError("Database Error: Make sure you have run the 'Handle New User' SQL Trigger in your Supabase SQL Editor.");
+      } else {
+        setError(err.message || 'An error occurred during authentication');
+      }
     } finally {
       setLoading(false);
     }
@@ -116,13 +124,28 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           </div>
 
           {error && (
-            <motion.p 
+            <motion.div 
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-sm text-rose-500 font-bold text-center leading-relaxed"
+              className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex gap-3"
             >
-              {error}
-            </motion.p>
+              <AlertCircle className="text-rose-500 shrink-0" size={18} />
+              <p className="text-xs text-rose-600 font-bold leading-relaxed">
+                {error}
+              </p>
+            </motion.div>
+          )}
+
+          {success && (
+            <motion.div 
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"
+            >
+              <p className="text-xs text-emerald-600 font-bold text-center">
+                {success}
+              </p>
+            </motion.div>
           )}
 
           <button 
@@ -142,7 +165,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <div className="mt-8 text-center">
           <button 
             disabled={loading}
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+              setSuccess('');
+            }}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-50"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
