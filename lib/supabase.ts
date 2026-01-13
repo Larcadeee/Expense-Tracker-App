@@ -1,20 +1,22 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Safe access to environment variables in browser/Vite/Vercel environments
-const getEnv = (key: string) => {
+const getEnv = (key: string): string | undefined => {
   try {
-    // Check for standard process.env (Node/Webpack/Vercel default)
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key];
+    // Standard process.env access using bracket notation to avoid naive replacement bugs
+    if (typeof process !== 'undefined' && process.env) {
+      return (process.env as any)[key];
     }
-    // Check for Vite-style import.meta.env
-    if (typeof (import.meta as any).env !== 'undefined' && (import.meta as any).env[key]) {
-      return (import.meta as any).env[key];
+  } catch (e) {}
+  
+  try {
+    // Support for Vite-style import.meta.env
+    const meta = (import.meta as any);
+    if (meta && meta.env) {
+      return meta.env[key];
     }
-  } catch (e) {
-    console.warn(`Environment variable ${key} not found or inaccessible.`);
-  }
+  } catch (e) {}
+
   return undefined;
 };
 
@@ -23,5 +25,4 @@ const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Helper to check if the app has valid credentials
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder'));

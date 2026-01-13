@@ -1,10 +1,10 @@
 
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import MetricCard from '../components/MetricCard';
-import { Transaction, TransactionType, User } from '../types';
+import MetricCard from '../components/MetricCard.tsx';
+import { Transaction, TransactionType, User } from '../types.ts';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, PiggyBank, Calendar as CalendarIcon, ReceiptText, ChevronLeft, ChevronRight, Settings, Check, X, Shield, Eye, EyeOff, User as UserIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, PiggyBank, Calendar as CalendarIcon, ReceiptText, ChevronLeft, ChevronRight, Settings, Check, X } from 'lucide-react';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -65,7 +65,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
 
   const formatCurrency = (val: number) => `₱${val.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
-  // Calendar Helper Logic
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
 
@@ -76,12 +75,10 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
     const startDay = firstDayOfMonth(year, month);
     const days = [];
 
-    // Empty spaces for previous month
     for (let i = 0; i < startDay; i++) {
       days.push(null);
     }
 
-    // Days of the month
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
       const dateStr = d.toISOString().split('T')[0];
@@ -117,9 +114,9 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div>
             <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">
-              Welcome back, {user.name.split(' ')[0]} 👋
+              Welcome, {user.name.split(' ')[0]} 👋
             </h2>
-            <p className="text-slate-500 font-medium mt-1 uppercase text-xs tracking-widest">Your financial snapshot for this month</p>
+            <p className="text-slate-500 font-medium mt-1 uppercase text-xs tracking-widest">Financial Summary</p>
           </div>
           <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100">
             <CalendarIcon size={16} className="text-indigo-600" />
@@ -130,31 +127,14 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard 
-            label="MONTHLY INCOME" 
-            value={formatCurrency(metrics.income)} 
-            icon={TrendingUp} 
-            variant="success" 
-          />
-          <MetricCard 
-            label="MONTHLY EXPENSE" 
-            value={formatCurrency(metrics.expenses)} 
-            icon={TrendingDown} 
-            variant="warning" 
-          />
-          <MetricCard 
-            label="NET BALANCE" 
-            value={formatCurrency(metrics.balance)} 
-            subValue={`${metrics.savingsRate}% SAVINGS RATE`}
-            icon={PiggyBank} 
-            variant="primary" 
-          />
+          <MetricCard label="INCOME" value={formatCurrency(metrics.income)} icon={TrendingUp} variant="success" />
+          <MetricCard label="EXPENSE" value={formatCurrency(metrics.expenses)} icon={TrendingDown} variant="warning" />
+          <MetricCard label="BALANCE" value={formatCurrency(metrics.balance)} subValue={`${metrics.savingsRate}% Savings`} icon={PiggyBank} variant="primary" />
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
         <section className="lg:col-span-3 space-y-8">
-          {/* Trend Chart */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
             <h3 className="text-xs font-extrabold tracking-[0.2em] mb-8 text-slate-400 uppercase">Cash Flow Trends</h3>
             <div className="h-64 w-full">
@@ -184,21 +164,18 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
             </div>
           </div>
 
-          {/* Transactions for Selected Date */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[300px] flex flex-col">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Transactions on {new Date(selectedDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>
-            </div>
+            <h3 className="text-xs font-extrabold tracking-[0.2em] mb-8 text-slate-400 uppercase">Daily Transactions</h3>
             <div className="space-y-4 flex-grow">
               <AnimatePresence mode="popLayout">
                 {transactionsForSelectedDate.length > 0 ? (
-                  transactionsForSelectedDate.map((t, idx) => (
+                  transactionsForSelectedDate.map((t) => (
                     <motion.div 
                       key={t.id} 
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
-                      className="flex justify-between items-center p-4 rounded-2xl bg-slate-50/50 border border-slate-100 group hover:border-indigo-100 transition-colors"
+                      className="flex justify-between items-center p-4 rounded-2xl bg-slate-50/50 border border-slate-100 hover:border-indigo-100 transition-colors"
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === TransactionType.INCOME ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -215,9 +192,9 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
                     </motion.div>
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center opacity-40">
+                  <div className="flex flex-col items-center justify-center py-12 opacity-40">
                     <ReceiptText size={48} strokeWidth={1} className="mb-4 text-slate-400" />
-                    <p className="text-xs font-bold uppercase tracking-widest">No transactions found for this day</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-center">No records for this date</p>
                   </div>
                 )}
               </AnimatePresence>
@@ -226,10 +203,9 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
         </section>
 
         <section className="lg:col-span-2 space-y-8">
-          {/* Calendar Widget */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Interactive Calendar</h3>
+              <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Calendar</h3>
               <div className="flex items-center gap-1">
                 <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors">
                   <ChevronLeft size={16} />
@@ -276,25 +252,17 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
             </div>
           </div>
 
-          {/* Quick Stats / Targets */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
              <div className="flex items-center justify-between mb-6">
                <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Monthly Targets</h3>
-               <button 
-                onClick={() => setIsEditingTargets(!isEditingTargets)}
-                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-               >
+               <button onClick={() => setIsEditingTargets(!isEditingTargets)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
                  {isEditingTargets ? <X size={16} /> : <Settings size={16} />}
                </button>
              </div>
              
              <div className="space-y-8">
                 {isEditingTargets ? (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-4"
-                  >
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-extrabold text-slate-400 uppercase ml-1">Savings Goal (₱)</label>
                       <input 
@@ -313,11 +281,8 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-sm font-bold"
                       />
                     </div>
-                    <button 
-                      onClick={handleSaveTargets}
-                      className="w-full bg-indigo-600 text-white py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-                    >
-                      <Check size={14} /> SAVE TARGETS
+                    <button onClick={handleSaveTargets} className="w-full bg-indigo-600 text-white py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                      <Check size={14} /> SAVE
                     </button>
                   </motion.div>
                 ) : (
@@ -328,32 +293,17 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
                         <span className="text-xs font-extrabold text-indigo-600">{formatCurrency(savingsGoal)}</span>
                       </div>
                       <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${savingsProgress}%` }}
-                          className="h-full bg-gradient-to-r from-indigo-500 to-blue-400" 
-                        ></motion.div>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${savingsProgress}%` }} className="h-full bg-gradient-to-r from-indigo-500 to-blue-400" />
                       </div>
-                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-tighter">
-                        {savingsProgress >= 100 ? "Goal achieved!" : `Currently at ${savingsProgress.toFixed(0)}% of your savings goal.`}
-                      </p>
                     </div>
-
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Expense Limit</span>
                         <span className="text-xs font-extrabold text-rose-500">{formatCurrency(expenseLimit)}</span>
                       </div>
                       <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ width: `${expenseProgress}%` }}
-                          className={`h-full ${expenseProgress > 90 ? 'bg-rose-500' : 'bg-gradient-to-r from-rose-400 to-orange-300'}`}
-                        ></motion.div>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${expenseProgress}%` }} className={`h-full ${expenseProgress > 90 ? 'bg-rose-500' : 'bg-gradient-to-r from-rose-400 to-orange-300'}`} />
                       </div>
-                      <p className="text-[10px] font-medium text-slate-400 leading-relaxed uppercase tracking-tighter">
-                        {expenseProgress > 100 ? "Warning: Limit exceeded!" : `You've utilized ${expenseProgress.toFixed(0)}% of your budget.`}
-                      </p>
                     </div>
                   </>
                 )}

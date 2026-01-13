@@ -1,10 +1,11 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { Transaction, AIInsight } from "../types";
+import { Transaction, AIInsight } from "../types.ts";
 
 const getApiKey = () => {
   try {
-    return (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+    if (typeof process !== 'undefined' && process.env) {
+      return (process.env as any)["API_KEY"];
+    }
   } catch {
     return undefined;
   }
@@ -20,8 +21,6 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey });
-  
   const simplifiedData = transactions.map(t => ({
     date: t.date,
     type: t.type,
@@ -30,50 +29,63 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
   }));
 
   const prompt = `
-    Analyze the following financial transaction history (Values in Philippine Peso ₱) and provide insights.
+    Analyze the following financial transaction history (Values in Philippine Peso) and provide insights.
     
     Data: ${JSON.stringify(simplifiedData)}
     
     Tasks:
     1. Identify spending spikes or unusual patterns.
     2. Compare income vs expense trends.
-    3. Predict next month's total income and expenses in ₱ based on these trends.
-    4. Provide 3 actionable financial recommendations tailored for a Philippine context if applicable (e.g., inflation awareness, emergency fund building).
+    3. Predict next month's total income and expenses based on these trends.
+    4. Provide 3 actionable financial recommendations tailored for a Philippine context.
     
-    Keep the tone professional yet encouraging.
+    You must respond with a JSON object containing:
+    - analysis: A string describing spending habits.
+    - forecast: A string describing projections.
+    - recommendations: An array of 3 strings.
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            analysis: { type: Type.STRING, description: "Detailed analysis of current spending habits" },
-            forecast: { type: Type.STRING, description: "Next month projections" },
-            recommendations: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING },
-              description: "Actionable financial advice"
-            }
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional financial advisor. Return your response in JSON format."
           },
-          required: ["analysis", "forecast", "recommendations"]
-        }
-      }
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
     });
 
-    if (!response.text) throw new Error("No response from AI");
-    return JSON.parse(response.text.trim()) as AIInsight;
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    const content = result.choices[0]?.message?.content;
+    
+    if (!content) throw new Error("Empty response from AI");
+    
+    return JSON.parse(content) as AIInsight;
   } catch (error) {
     console.error("AI Insight error:", error);
     return {
       analysis: "Unable to generate AI analysis at this time. Please check your connection.",
-      forecast: "Projections currently unavailable in Peso.",
+      forecast: "Projections currently unavailable.",
       recommendations: [
-        "Maintain a consistent ₱ tracking habit.",
+        "Maintain a consistent tracking habit.",
         "Review high-cost categories like Food or Transport.",
         "Target a 20% savings rate in your next cycle."
       ]

@@ -26,13 +26,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
     try {
       if (isLogin) {
-        const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        const { error: loginError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (loginError) throw loginError;
       } else {
-        // Sign up the user
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -46,16 +45,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
         if (signUpError) throw signUpError;
         
-        // Handle the "No Automatic Login" request
         if (signUpData.user) {
-          // If a session was automatically created, we sign it out to force manual login
           if (signUpData.session) {
             await supabase.auth.signOut();
           }
           
           setSuccess("Account created successfully! You can now sign in below.");
-          setIsLogin(true); // Switch back to login mode
-          setPassword(''); // Clear password for security
+          setIsLogin(true);
+          setPassword('');
         }
       }
     } catch (err: any) {
@@ -88,12 +85,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         <div className="flex flex-col items-center mb-10">
           <motion.div 
             layout
+            transition={{ duration: 0.4, ease: "circOut" }}
             className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-rose-500 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-6"
           >
             <WalletIcon size={32} />
           </motion.div>
-          <motion.h1 layout className="text-3xl font-extrabold text-slate-900 mb-2 uppercase tracking-tighter">Wallet</motion.h1>
-          <motion.p layout className="text-slate-500 font-medium text-center">Empower your financial future.</motion.p>
+          <motion.h1 layout transition={{ duration: 0.4, ease: "circOut" }} className="text-3xl font-extrabold text-slate-900 mb-2 uppercase tracking-tighter">Wallet</motion.h1>
+          <motion.p layout transition={{ duration: 0.4, ease: "circOut" }} className="text-slate-500 font-medium text-center">Empower your financial future.</motion.p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -101,10 +99,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             {!isLogin && (
               <motion.div 
                 key="name-field"
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, height: 0, marginBottom: 0, y: -20 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 24, y: 0 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: "circOut" }}
                 className="relative overflow-hidden"
               >
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -121,7 +119,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             )}
           </AnimatePresence>
 
-          <motion.div layout className="relative">
+          <motion.div layout transition={{ duration: 0.4, ease: "circOut" }} className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="email" 
@@ -134,7 +132,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             />
           </motion.div>
 
-          <motion.div layout className="relative">
+          <motion.div layout transition={{ duration: 0.4, ease: "circOut" }} className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="password" 
@@ -147,9 +145,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             />
           </motion.div>
 
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {error && (
               <motion.div 
+                key="error-msg"
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -164,6 +163,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
             {success && (
               <motion.div 
+                key="success-msg"
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -179,6 +179,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
           <motion.button 
             layout
+            transition={{ duration: 0.4, ease: "circOut" }}
             type="submit"
             disabled={loading}
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
@@ -190,6 +191,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
                   className="flex items-center gap-2"
                 >
                   {isLogin ? 'Sign In' : 'Create Account'}
@@ -200,7 +202,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           </motion.button>
         </form>
 
-        <motion.div layout className="mt-8 text-center">
+        <motion.div layout transition={{ duration: 0.4, ease: "circOut" }} className="mt-8 text-center">
           <button 
             disabled={loading}
             onClick={toggleMode}

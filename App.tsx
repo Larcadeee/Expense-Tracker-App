@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import Transactions from './pages/Transactions';
-import Analytics from './pages/Analytics';
-import { Transaction, TransactionType, User } from './types';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { AlertCircle, ExternalLink, ShieldCheck } from 'lucide-react';
+import Layout from './components/Layout.tsx';
+import Auth from './pages/Auth.tsx';
+import Dashboard from './pages/Dashboard.tsx';
+import Transactions from './pages/Transactions.tsx';
+import Analytics from './pages/Analytics.tsx';
+import { Transaction, TransactionType, User } from './types.ts';
+import { supabase, isSupabaseConfigured } from './lib/supabase.ts';
+import { AlertCircle, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,7 +21,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // 1. Check current session
     const initSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -32,7 +31,6 @@ const App: React.FC = () => {
 
     initSession();
 
-    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await fetchUserProfile(session.user.id, session.user.email!);
@@ -64,15 +62,12 @@ const App: React.FC = () => {
           id,
           email: data.email || sessionEmail,
           name: data.name,
-          password: data.password, // Added password fetching
           savingsGoal: data.savings_goal,
           expenseLimit: data.expense_limit
         });
-      } else if (error) {
-        console.error('Error fetching profile:', error);
       }
     } catch (err) {
-      console.error('Network or database error:', err);
+      console.error('Profile fetch error:', err);
     }
   };
 
@@ -98,7 +93,7 @@ const App: React.FC = () => {
         })));
       }
     } catch (err) {
-      console.error('Failed to fetch transactions:', err);
+      console.error('Transaction fetch error:', err);
     }
   };
 
@@ -174,7 +169,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Configuration check: If secrets are missing, show a helpful setup screen
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
@@ -184,16 +178,8 @@ const App: React.FC = () => {
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 mb-4 uppercase tracking-tight">Setup Required</h2>
           <p className="text-slate-500 font-medium mb-8">
-            Wallet needs a Supabase connection to store your data securely. Please add the following to your environment variables or Secrets:
+            Wallet needs a Supabase connection to store your data securely.
           </p>
-          <div className="space-y-4 mb-10 text-left">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 font-mono text-xs font-bold text-slate-600">
-              SUPABASE_URL
-            </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 font-mono text-xs font-bold text-slate-600">
-              SUPABASE_ANON_KEY
-            </div>
-          </div>
           <a 
             href="https://supabase.com/dashboard" 
             target="_blank" 
