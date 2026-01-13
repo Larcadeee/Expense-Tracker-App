@@ -15,59 +15,6 @@ const App: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const initSession = async () => {
-      if (!isSupabaseConfigured) {
-        setLoading(false);
-        return;
-      }
-
-      // Safety timeout: If Supabase doesn't respond in 6s, force end loading
-      const timeout = setTimeout(() => {
-        if (loading) {
-          console.warn('Initialization timeout - proceeding to app state');
-          setLoading(false);
-        }
-      }, 6000);
-
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) throw sessionError;
-
-        if (session?.user) {
-          await fetchUserProfile(session.user.id, session.user.email!);
-        }
-      } catch (err) {
-        console.error('Initial session check failed:', err);
-      } finally {
-        clearTimeout(timeout);
-        setLoading(false);
-      }
-    };
-
-    initSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user.id, session.user.email!);
-      } else {
-        setUser(null);
-        setTransactions([]);
-      }
-    });
-
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (user && isSupabaseConfigured) {
-      fetchTransactions();
-    }
-  }, [user]);
-
   const fetchUserProfile = async (id: string, sessionEmail: string) => {
     try {
       const { data, error } = await supabase
@@ -76,7 +23,7 @@ const App: React.FC = () => {
         .eq('id', id)
         .maybeSingle();
 
-      if (data) {
+      if (data && !error) {
         setUser({
           id,
           email: data.email || sessionEmail,
@@ -85,14 +32,10 @@ const App: React.FC = () => {
           expenseLimit: data.expense_limit
         });
       } else {
-        setUser({
-          id,
-          email: sessionEmail,
-          name: sessionEmail.split('@')[0],
-        });
+        setUser({ id, email: sessionEmail, name: sessionEmail.split('@')[0] });
       }
     } catch (err) {
-      console.error('Profile fetch error:', err);
+      console.error('Profile fetch failed:', err);
     }
   };
 
@@ -118,94 +61,96 @@ const App: React.FC = () => {
         })));
       }
     } catch (err) {
-      console.error('Transaction fetch error:', err);
+      console.error('Transaction fetch failed:', err);
     }
   };
 
+  useEffect(() => {
+    const initSession = async () => {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
+      }
+
+      // Aggressive timeout: reveal UI after 4s even if session check is hanging
+      const timeoutId = setTimeout(() => {
+        setLoading(false);
+      }, 4000);
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await fetchUserProfile(session.user.id, session.user.email!);
+        }
+      } catch (err) {
+        console.error('Boot error:', err);
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
+    };
+
+    initSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await fetchUserProfile(session.user.id, session.user.email!);
+      } else {
+        setUser(null);
+        setTransactions([]);
+      }
+    });
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user) fetchTransactions();
+  }, [user]);
+
   const handleUpdateUser = async (updatedFields: Partial<User>) => {
     if (!user) return;
-    
-    const dbFields: any = {};
-    if (updatedFields.name) dbFields.name = updatedFields.name;
-    if (updatedFields.savingsGoal !== undefined) dbFields.savings_goal = updatedFields.savingsGoal;
-    if (updatedFields.expenseLimit !== undefined) dbFields.expense_limit = updatedFields.expenseLimit;
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(dbFields)
-        .eq('id', user.id);
-
-      if (!error) {
-        setUser(prev => prev ? { ...prev, ...updatedFields } : null);
-      }
-    } catch (err) {
-      console.error('Update profile error:', err);
-    }
+      const dbFields: any = {};
+      if (updatedFields.name) dbFields.name = updatedFields.name;
+      const { error } = await supabase.from('profiles').update(dbFields).eq('id', user.id);
+      if (!error) setUser(prev => prev ? { ...prev, ...updatedFields } : null);
+    } catch (err) { console.error(err); }
   };
 
   const handleAddTransaction = async (t: Omit<Transaction, 'id' | 'createdAt'>) => {
     if (!user) return;
-    
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert([{
-          user_id: user.id,
-          type: t.type,
-          amount: t.amount,
-          category: t.category,
-          date: t.date,
-          notes: t.notes
-        }])
-        .select()
-        .single();
-
+      const { data, error } = await supabase.from('transactions').insert([{
+        user_id: user.id, type: t.type, amount: t.amount, category: t.category, date: t.date, notes: t.notes
+      }]).select().single();
       if (data && !error) {
-        const newT: Transaction = {
-          id: data.id,
-          userId: data.user_id,
-          type: data.type as TransactionType,
-          amount: parseFloat(data.amount),
-          category: data.category,
-          date: data.date,
-          notes: data.notes,
-          createdAt: data.created_at
-        };
-        setTransactions([newT, ...transactions]);
+        setTransactions([{
+          id: data.id, userId: data.user_id, type: data.type as TransactionType,
+          amount: parseFloat(data.amount), category: data.category, date: data.date, 
+          notes: data.notes, createdAt: data.created_at
+        }, ...transactions]);
       }
-    } catch (err) {
-      console.error('Add transaction error:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleDeleteTransaction = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', id);
-
-      if (!error) {
-        setTransactions(transactions.filter(t => t.id !== id));
-      }
-    } catch (err) {
-      console.error('Delete transaction error:', err);
-    }
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (!error) setTransactions(transactions.filter(t => t.id !== id));
+    } catch (err) { console.error(err); }
   };
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+    try { await supabase.auth.signOut(); } catch (err) { console.error(err); }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-10 h-10 border-[3px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -213,21 +158,14 @@ const App: React.FC = () => {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-10 text-center">
-          <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center text-rose-500 mx-auto mb-8">
-            <AlertCircle size={40} />
+        <div className="max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-10 text-center">
+          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto mb-6">
+            <AlertCircle size={32} />
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 mb-4 uppercase tracking-tight">Setup Required</h2>
-          <p className="text-slate-500 font-medium mb-8">
-            Wallet needs a Supabase connection to store your data securely.
-          </p>
-          <a 
-            href="https://supabase.com/dashboard" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100"
-          >
-            Open Supabase Dashboard <ExternalLink size={18} />
+          <h2 className="text-xl font-extrabold text-slate-900 mb-2 uppercase tracking-tight">Configuration Error</h2>
+          <p className="text-slate-500 text-sm font-medium mb-8">Connection to data layer failed. Please check your Supabase environment variables.</p>
+          <a href="https://supabase.com" target="_blank" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 transition-all hover:scale-[1.02]">
+            Dashboard <ExternalLink size={16} />
           </a>
         </div>
       </div>
@@ -242,26 +180,8 @@ const App: React.FC = () => {
             <Route path="*" element={<Auth onLogin={() => {}} />} />
           ) : (
             <>
-              <Route 
-                path="/" 
-                element={
-                  <Dashboard 
-                    transactions={transactions} 
-                    user={user} 
-                    onUpdateUser={handleUpdateUser}
-                  />
-                } 
-              />
-              <Route 
-                path="/transactions" 
-                element={
-                  <Transactions 
-                    transactions={transactions} 
-                    onAdd={handleAddTransaction} 
-                    onDelete={handleDeleteTransaction}
-                  />
-                } 
-              />
+              <Route path="/" element={<Dashboard transactions={transactions} user={user} onUpdateUser={handleUpdateUser} />} />
+              <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />} />
               <Route path="/analytics" element={<Analytics transactions={transactions} />} />
               <Route path="*" element={<Navigate to="/" />} />
             </>

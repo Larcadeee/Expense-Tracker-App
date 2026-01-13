@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, ReceiptText, BrainCircuit, LogOut, Wallet as WalletIcon } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, BarChart3, LogOut, Wallet as WalletIcon } from 'lucide-react';
 import { User } from '../types.ts';
 import { supabase } from '../lib/supabase.ts';
 
@@ -17,9 +17,9 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   
   const navItems = [
-    { path: '/', label: 'Overview', icon: LayoutDashboard },
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/transactions', label: 'History', icon: ReceiptText },
-    { path: '/analytics', label: 'AI Analytics', icon: BrainCircuit },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   useEffect(() => {
@@ -31,8 +31,8 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         setIsConnected(false);
       }
     };
-    checkConnection();
-  }, []);
+    if (user) checkConnection();
+  }, [user]);
 
   if (!user) return <>{children}</>;
 
@@ -61,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
           <div className="flex items-center gap-4">
             <div className="hidden sm:block text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active User</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Session</p>
               <p className="text-sm font-bold text-slate-900">{user.name}</p>
             </div>
             <button onClick={onLogout} className="p-2.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all shadow-sm"><LogOut size={20} /></button>
@@ -84,10 +84,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
               <p className="text-sm font-bold text-slate-900 uppercase tracking-widest">Wallet</p>
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200">
                 <div className={`w-1.5 h-1.5 rounded-full ${isConnected === null ? 'bg-slate-300' : isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{isConnected === null ? 'SYNC' : isConnected ? 'LIVE' : 'DOWN'}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{isConnected === null ? 'SYNC' : isConnected ? 'LIVE' : 'OFFLINE'}</span>
               </div>
             </div>
-            <p className="text-xs text-slate-500">Professional Finance Tracking.</p>
+            <p className="text-xs text-slate-500 font-medium">Professional Finance Tracking.</p>
           </div>
         </div>
       </footer>
