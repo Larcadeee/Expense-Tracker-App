@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, ReceiptText, BrainCircuit, LogOut, Wallet as WalletIcon } from 'lucide-react';
+import { LayoutDashboard, ReceiptText, BarChart3, LogOut, Wallet as WalletIcon } from 'lucide-react';
 import { User } from '../types.ts';
 import { supabase } from '../lib/supabase.ts';
 
@@ -19,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const navItems = [
     { path: '/', label: 'Overview', icon: LayoutDashboard },
     { path: '/transactions', label: 'History', icon: ReceiptText },
-    { path: '/analytics', label: 'AI Analytics', icon: BrainCircuit },
+    { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   useEffect(() => {

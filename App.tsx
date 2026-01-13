@@ -74,28 +74,33 @@ const App: React.FC = () => {
     let timeoutId: any;
 
     const init = async () => {
+      // Immediate boot if config is missing
       if (!isSupabaseConfigured) {
         setLoading(false);
         return;
       }
 
-      // 4-second safety timeout for initial boot
+      // Safety timeout: forced loading end after 5s to prevent white screen
       timeoutId = setTimeout(() => {
-        if (loading) {
-          console.warn('Supabase initialization timed out.');
-          setLoading(false);
-          setError('Initialization is taking longer than usual. Please check your connection.');
-        }
-      }, 4000);
+        setLoading(prev => {
+          if (prev) {
+            console.warn('Boot timeout triggered - forcing UI reveal.');
+            setError('Connection is slow. Authenticate to sync your data.');
+            return false;
+          }
+          return prev;
+        });
+      }, 5000);
 
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
+        
         if (session?.user) {
           await fetchUserProfile(session.user.id, session.user.email!);
         }
       } catch (err) {
-        console.error('Init Error:', err);
+        console.error('Initialization Error:', err);
       } finally {
         clearTimeout(timeoutId);
         setLoading(false);
@@ -186,6 +191,7 @@ const App: React.FC = () => {
     );
   }
 
+  // Fallback UI if Supabase isn't reachable or configured
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
@@ -193,10 +199,10 @@ const App: React.FC = () => {
           <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto mb-6">
             <AlertCircle size={32} />
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 mb-2 uppercase tracking-tight">Setup Supabase</h2>
-          <p className="text-slate-500 text-sm font-medium mb-8">Environment variables are required to sync your data.</p>
+          <h2 className="text-xl font-extrabold text-slate-900 mb-2 uppercase tracking-tight">Configuration Error</h2>
+          <p className="text-slate-500 text-sm font-medium mb-8">Invalid Supabase credentials detected. Please check your environment variables.</p>
           <a href="https://supabase.com" target="_blank" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 transition-all hover:scale-[1.02]">
-            Supabase Dashboard <ExternalLink size={16} />
+            Setup Supabase <ExternalLink size={16} />
           </a>
         </div>
       </div>
