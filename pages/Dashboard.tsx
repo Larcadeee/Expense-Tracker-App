@@ -16,7 +16,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [isEditingTargets, setIsEditingTargets] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [tempSavingsGoal, setTempSavingsGoal] = useState(user.savingsGoal?.toString() || '20000');
   const [tempExpenseLimit, setTempExpenseLimit] = useState(user.expenseLimit?.toString() || '30000');
 
@@ -275,45 +274,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
                 );
               })}
             </div>
-          </div>
-
-          {/* User Profile / Security */}
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-             <div className="flex items-center justify-between mb-6">
-               <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Account Profile</h3>
-               <Shield size={16} className="text-emerald-500" />
-             </div>
-             <div className="space-y-6">
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                    <UserIcon size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter">Registered Email</p>
-                    <p className="text-sm font-bold text-slate-900 truncate">{user.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
-                    <Shield size={18} />
-                  </div>
-                  <div className="flex-grow">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter">Saved Password</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-900 font-mono">
-                        {showPassword ? (user.password || 'Not Set') : '••••••••••••'}
-                      </p>
-                      <button 
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-             </div>
           </div>
 
           {/* Quick Stats / Targets */}

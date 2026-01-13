@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Wallet as WalletIcon, ArrowRight, User as UserIcon, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Wallet as WalletIcon, ArrowRight, User as UserIcon, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -46,12 +46,16 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
         if (signUpError) throw signUpError;
         
-        // If session is null, Supabase still has "Confirm Email" turned ON
-        if (signUpData.user && !signUpData.session) {
-          setError("Confirmation Required: Please go to Supabase -> Auth -> Providers -> Email and turn 'Confirm sign up' to OFF, then DELETE this user and try again.");
-        } else if (signUpData.user && signUpData.session) {
-          setSuccess("Account created successfully! Redirecting...");
-          // The App.tsx listener will handle the redirect automatically
+        // Handle the "No Automatic Login" request
+        if (signUpData.user) {
+          // If a session was automatically created, we sign it out to force manual login
+          if (signUpData.session) {
+            await supabase.auth.signOut();
+          }
+          
+          setSuccess("Account created successfully! You can now sign in below.");
+          setIsLogin(true); // Switch back to login mode
+          setPassword(''); // Clear password for security
         }
       }
     } catch (err: any) {
@@ -66,38 +70,58 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
   };
 
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError('');
+    setSuccess('');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50/50">
       <motion.div 
+        layout
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 p-10"
+        transition={{ duration: 0.4, ease: "circOut" }}
+        className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 p-10 overflow-hidden"
       >
         <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-rose-500 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-6">
+          <motion.div 
+            layout
+            className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-rose-500 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-6"
+          >
             <WalletIcon size={32} />
-          </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 mb-2 uppercase tracking-tighter">Wallet</h1>
-          <p className="text-slate-500 font-medium">Empower your financial future.</p>
+          </motion.div>
+          <motion.h1 layout className="text-3xl font-extrabold text-slate-900 mb-2 uppercase tracking-tighter">Wallet</motion.h1>
+          <motion.p layout className="text-slate-500 font-medium text-center">Empower your financial future.</motion.p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {!isLogin && (
-            <div className="relative">
-              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input 
-                type="text" 
-                placeholder="Full Name"
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium disabled:opacity-50"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required={!isLogin}
-                disabled={loading}
-              />
-            </div>
-          )}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {!isLogin && (
+              <motion.div 
+                key="name-field"
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative overflow-hidden"
+              >
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  placeholder="Full Name"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium disabled:opacity-50"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required={!isLogin}
+                  disabled={loading}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="relative">
+          <motion.div layout className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="email" 
@@ -108,9 +132,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               required
               disabled={loading}
             />
-          </div>
+          </motion.div>
 
-          <div className="relative">
+          <motion.div layout className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="password" 
@@ -121,60 +145,70 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               required
               disabled={loading}
             />
-          </div>
+          </motion.div>
 
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex gap-3"
-            >
-              <AlertCircle className="text-rose-500 shrink-0" size={18} />
-              <p className="text-xs text-rose-600 font-bold leading-relaxed">
-                {error}
-              </p>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex gap-3"
+              >
+                <AlertCircle className="text-rose-500 shrink-0" size={18} />
+                <p className="text-xs text-rose-600 font-bold leading-relaxed">
+                  {error}
+                </p>
+              </motion.div>
+            )}
 
-          {success && (
-            <motion.div 
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"
-            >
-              <p className="text-xs text-emerald-600 font-bold text-center">
-                {success}
-              </p>
-            </motion.div>
-          )}
+            {success && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex gap-3 items-center"
+              >
+                <CheckCircle2 className="text-emerald-500 shrink-0" size={18} />
+                <p className="text-xs text-emerald-600 font-bold leading-relaxed">
+                  {success}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <button 
+          <motion.button 
+            layout
             type="submit"
             disabled={loading}
             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:hover:scale-100"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : (
-              <>
-                {isLogin ? 'Sign In' : 'Create Account'}
-                <ArrowRight size={20} />
-              </>
+              <AnimatePresence mode="wait">
+                <motion.span 
+                  key={isLogin ? 'login' : 'signup'}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="flex items-center gap-2"
+                >
+                  {isLogin ? 'Sign In' : 'Create Account'}
+                  <ArrowRight size={20} />
+                </motion.span>
+              </AnimatePresence>
             )}
-          </button>
+          </motion.button>
         </form>
 
-        <div className="mt-8 text-center">
+        <motion.div layout className="mt-8 text-center">
           <button 
             disabled={loading}
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-              setSuccess('');
-            }}
+            onClick={toggleMode}
             className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-50"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
