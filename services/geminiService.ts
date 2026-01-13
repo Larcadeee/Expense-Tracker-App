@@ -5,14 +5,14 @@ import { Transaction, AIInsight } from "../types.ts";
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
   const PESO_SYMBOL = '\u20B1';
   
-  // Directly access process.env.API_KEY as per instructions
+  // Requirement: Use process.env.API_KEY directly
   const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
 
   if (!apiKey) {
     return {
-      analysis: "AI Insight unavailable. Gemini API Key is missing in environment variables.",
-      forecast: "Projections hidden.",
-      recommendations: ["Configure API Key."],
+      analysis: "AI Audit unavailable. API Key not found in environment.",
+      forecast: "Projections paused.",
+      recommendations: ["Configure Gemini API Key to enable insights."],
       healthScore: 0,
       savingsPotential: `${PESO_SYMBOL}0.00`
     };
@@ -28,37 +28,28 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     notes: t.notes
   }));
 
-  const prompt = `
-    Analyze these transactions (PHP ${PESO_SYMBOL}).
-    
-    Data: ${JSON.stringify(simplifiedData)}
-    
-    Tasks:
-    1. Calculate a "Financial Health Score" (0-100).
-    2. Identify specific "Savings Potential" - monthly PHP amount recoverable from non-essentials.
-    3. Analyze behavioral spending patterns.
-    4. Predict next month's cash flow.
-    5. Provide 3 actionable recommendations for the Philippine market.
-  `;
+  const prompt = `Analyze these financial records (Currency: PHP ${PESO_SYMBOL}). Provide a technical audit in JSON format.
+  Data: ${JSON.stringify(simplifiedData)}`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        systemInstruction: "You are a senior financial auditor. Output only valid JSON based on the provided schema.",
+        systemInstruction: "You are a senior financial data scientist. Analyze the user's spending habits and return a precise JSON response according to the schema. Be critical but constructive. Focus on the Philippine economy and typical cost of living.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            analysis: { type: Type.STRING },
-            forecast: { type: Type.STRING },
+            analysis: { type: Type.STRING, description: "A summary of spending behavior." },
+            forecast: { type: Type.STRING, description: "Estimated next month status." },
             recommendations: {
               type: Type.ARRAY,
-              items: { type: Type.STRING }
+              items: { type: Type.STRING },
+              description: "3 actionable tips."
             },
-            healthScore: { type: Type.NUMBER },
-            savingsPotential: { type: Type.STRING }
+            healthScore: { type: Type.NUMBER, description: "Score from 0-100." },
+            savingsPotential: { type: Type.STRING, description: "Formatted PHP string." }
           },
           required: ["analysis", "forecast", "recommendations", "healthScore", "savingsPotential"]
         }
@@ -66,22 +57,22 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response");
+    if (!text) throw new Error("Empty AI response");
     
     const parsed = JSON.parse(text);
     return {
-      analysis: parsed.analysis || "Audit complete.",
-      forecast: parsed.forecast || "Unavailable",
+      analysis: parsed.analysis || "Audit successful.",
+      forecast: parsed.forecast || "Status quo expected.",
       recommendations: parsed.recommendations || [],
-      healthScore: parsed.healthScore || 50,
+      healthScore: Math.min(100, Math.max(0, parsed.healthScore || 50)),
       savingsPotential: parsed.savingsPotential || `${PESO_SYMBOL}0.00`
     };
   } catch (error) {
-    console.error("Gemini Audit Error:", error);
+    console.error("Gemini Service Error:", error);
     return {
-      analysis: "AI audit could not be completed at this time.",
-      forecast: "Projections unavailable.",
-      recommendations: ["Track daily expenses.", "Avoid high-interest debt.", "Save 15% minimum."],
+      analysis: "AI Analytics are currently unavailable.",
+      forecast: "Unable to generate forecast.",
+      recommendations: ["Track daily food/transpo costs.", "Review monthly subscriptions.", "Save at least 10% of gross income."],
       healthScore: 0,
       savingsPotential: `${PESO_SYMBOL}0.00`
     };
