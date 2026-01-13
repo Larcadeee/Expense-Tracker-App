@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet as WalletIcon, ArrowRight, User as UserIcon, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { User } from '../types.ts';
@@ -18,11 +18,25 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Clear errors when switching modes
+  useEffect(() => {
+    setError('');
+    setSuccess('');
+  }, [isLogin]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
+
+    // Timeout safety to prevent infinite loading state
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setError('Connection timed out. Please check your network or try again later.');
+      }
+    }, 12000);
 
     try {
       if (isLogin) {
@@ -38,7 +52,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           options: {
             data: {
               name: name || 'New User',
-              password: password
             }
           }
         });
@@ -46,27 +59,24 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         if (signUpError) throw signUpError;
         
         if (signUpData.user) {
-          if (signUpData.session) {
-            await supabase.auth.signOut();
+          if (!signUpData.session) {
+            setSuccess("Check your email for a confirmation link!");
+            setIsLogin(true);
+            setPassword('');
           }
-          
-          setSuccess("Account created successfully! You can now sign in below.");
-          setIsLogin(true);
-          setPassword('');
         }
       }
     } catch (err: any) {
-      console.error("Auth process error:", err);
-      setError(err.message || 'An error occurred during authentication');
+      console.error("Auth error:", err);
+      setError(err.message || 'Authentication failed. Please try again.');
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
-    setError('');
-    setSuccess('');
   };
 
   return (
@@ -94,14 +104,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             {!isLogin && (
               <motion.div 
                 key="name-field"
-                initial={{ opacity: 0, height: 0, y: -20, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', y: 0, marginBottom: 16 }}
-                exit={{ opacity: 0, height: 0, y: -20, marginBottom: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
                 className="relative overflow-hidden"
               >
-                <div className="relative pt-1">
-                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <div className="relative pt-1 pb-4">
+                  <UserIcon className="absolute left-4 top-[calc(50%-8px)] -translate-y-1/2 text-slate-400" size={20} />
                   <input 
                     type="text" 
                     placeholder="Full Name"
@@ -176,7 +186,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             layout
             type="submit"
             disabled={loading}
-            className="w-full py-4 mt-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98] disabled:opacity-70"
+            className="w-full py-4 mt-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98] disabled:opacity-70 h-[60px]"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : (
               <span className="flex items-center gap-2">

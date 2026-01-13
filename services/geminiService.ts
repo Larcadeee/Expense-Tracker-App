@@ -4,15 +4,15 @@ import { Transaction, AIInsight } from "../types.ts";
 
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
   const PESO_SYMBOL = '\u20B1';
-
-  // Safely check for API Key without crashing browser
+  
+  // Directly access process.env.API_KEY as per instructions
   const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
 
   if (!apiKey) {
     return {
-      analysis: "API Key not found. Please set the API_KEY environment variable.",
-      forecast: "Unavailable",
-      recommendations: ["Ensure your environment variables are configured correctly."],
+      analysis: "AI Insight unavailable. Gemini API Key is missing in environment variables.",
+      forecast: "Projections hidden.",
+      recommendations: ["Configure API Key."],
       healthScore: 0,
       savingsPotential: `${PESO_SYMBOL}0.00`
     };
@@ -29,16 +29,16 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
   }));
 
   const prompt = `
-    Perform a professional financial audit on these transactions (Values in Philippine Peso ${PESO_SYMBOL}).
+    Analyze these transactions (PHP ${PESO_SYMBOL}).
     
     Data: ${JSON.stringify(simplifiedData)}
     
     Tasks:
-    1. Calculate a "Financial Health Score" (0-100) based on savings rate and spending balance.
-    2. Identify specific "Savings Potential" - an estimated monthly amount (in ${PESO_SYMBOL}) recoverable from non-essentials.
+    1. Calculate a "Financial Health Score" (0-100).
+    2. Identify specific "Savings Potential" - monthly PHP amount recoverable from non-essentials.
     3. Analyze behavioral spending patterns.
     4. Predict next month's cash flow.
-    5. Provide 3 high-impact recommendations for the Philippine market.
+    5. Provide 3 actionable recommendations for the Philippine market.
   `;
 
   try {
@@ -46,7 +46,7 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
       model: "gemini-3-pro-preview",
       contents: prompt,
       config: {
-        systemInstruction: "You are a senior financial auditor. Analyze transaction data and provide a structured JSON response. Adhere strictly to the JSON schema provided.",
+        systemInstruction: "You are a senior financial auditor. Output only valid JSON based on the provided schema.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -66,12 +66,12 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response from Gemini");
+    if (!text) throw new Error("Empty response");
     
     const parsed = JSON.parse(text);
     return {
       analysis: parsed.analysis || "Audit complete.",
-      forecast: parsed.forecast || "Forecast pending.",
+      forecast: parsed.forecast || "Unavailable",
       recommendations: parsed.recommendations || [],
       healthScore: parsed.healthScore || 50,
       savingsPotential: parsed.savingsPotential || `${PESO_SYMBOL}0.00`
@@ -79,9 +79,9 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
   } catch (error) {
     console.error("Gemini Audit Error:", error);
     return {
-      analysis: "Unable to complete AI audit at this time.",
-      forecast: "Projections currently unavailable.",
-      recommendations: ["Maintain consistent tracking.", "Review non-essential costs.", "Target 20% savings."],
+      analysis: "AI audit could not be completed at this time.",
+      forecast: "Projections unavailable.",
+      recommendations: ["Track daily expenses.", "Avoid high-interest debt.", "Save 15% minimum."],
       healthScore: 0,
       savingsPotential: `${PESO_SYMBOL}0.00`
     };

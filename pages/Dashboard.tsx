@@ -104,8 +104,8 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user }) => {
           </div>
           <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100">
             <CalendarIcon size={16} className="text-indigo-600" />
-            <span className="text-xs font-bold text-slate-600">
-              {new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(new Date()).toUpperCase()}
+            <span className="text-xs font-bold text-slate-600 uppercase">
+              {new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(new Date())}
             </span>
           </div>
         </div>
@@ -156,9 +156,9 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user }) => {
                   transactionsForSelectedDate.map((t) => (
                     <motion.div 
                       key={t.id} 
-                      initial={{ opacity: 0, x: -20 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
+                      exit={{ opacity: 0, x: 10 }}
                       className="flex justify-between items-center p-4 rounded-2xl bg-slate-50/50 border border-slate-100 hover:border-indigo-100 transition-colors"
                     >
                       <div className="flex items-center gap-4">
