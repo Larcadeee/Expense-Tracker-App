@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import Transactions from './pages/Transactions';
-import Analytics from './pages/Analytics';
-import { Transaction, TransactionType, User } from './types';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import Layout from './components/Layout.tsx';
+import Auth from './pages/Auth.tsx';
+import Dashboard from './pages/Dashboard.tsx';
+import Transactions from './pages/Transactions.tsx';
+import Analytics from './pages/Analytics.tsx';
+import { Transaction, TransactionType, User } from './types.ts';
+import { supabase, isSupabaseConfigured } from './lib/supabase.ts';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {

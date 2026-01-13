@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import MetricCard from '../components/MetricCard.tsx';
 import { Transaction, TransactionType, User } from '../types.ts';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, PiggyBank, Calendar as CalendarIcon, ReceiptText, ChevronLeft, ChevronRight, Settings, Check, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, PiggyBank, Calendar as CalendarIcon, ReceiptText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -12,12 +12,9 @@ interface DashboardProps {
   onUpdateUser: (updatedFields: Partial<User>) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, user }) => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-  const [isEditingTargets, setIsEditingTargets] = useState(false);
-  const [tempSavingsGoal, setTempSavingsGoal] = useState(user.savingsGoal?.toString() || '20000');
-  const [tempExpenseLimit, setTempExpenseLimit] = useState(user.expenseLimit?.toString() || '30000');
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
@@ -94,19 +91,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
     newDate.setMonth(newDate.getMonth() + offset);
     setCurrentCalendarDate(newDate);
   };
-
-  const handleSaveTargets = () => {
-    onUpdateUser({
-      savingsGoal: parseFloat(tempSavingsGoal) || 0,
-      expenseLimit: parseFloat(tempExpenseLimit) || 0,
-    });
-    setIsEditingTargets(false);
-  };
-
-  const savingsGoal = user.savingsGoal || 20000;
-  const expenseLimit = user.expenseLimit || 30000;
-  const savingsProgress = Math.max(0, Math.min((metrics.balance / savingsGoal) * 100, 100));
-  const expenseProgress = Math.max(0, Math.min((metrics.expenses / expenseLimit) * 100, 100));
 
   return (
     <div className="space-y-10">
@@ -250,64 +234,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, user, onUpdateUser 
                 );
               })}
             </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-             <div className="flex items-center justify-between mb-6">
-               <h3 className="text-xs font-extrabold tracking-[0.2em] text-slate-400 uppercase">Monthly Targets</h3>
-               <button onClick={() => setIsEditingTargets(!isEditingTargets)} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
-                 {isEditingTargets ? <X size={16} /> : <Settings size={16} />}
-               </button>
-             </div>
-             
-             <div className="space-y-8">
-                {isEditingTargets ? (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-extrabold text-slate-400 uppercase ml-1">Savings Goal (₱)</label>
-                      <input 
-                        type="number"
-                        value={tempSavingsGoal}
-                        onChange={(e) => setTempSavingsGoal(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-bold"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-extrabold text-slate-400 uppercase ml-1">Expense Limit (₱)</label>
-                      <input 
-                        type="number"
-                        value={tempExpenseLimit}
-                        onChange={(e) => setTempExpenseLimit(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-sm font-bold"
-                      />
-                    </div>
-                    <button onClick={handleSaveTargets} className="w-full bg-indigo-600 text-white py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
-                      <Check size={14} /> SAVE
-                    </button>
-                  </motion.div>
-                ) : (
-                  <>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Savings Goal</span>
-                        <span className="text-xs font-extrabold text-indigo-600">{formatCurrency(savingsGoal)}</span>
-                      </div>
-                      <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${savingsProgress}%` }} className="h-full bg-gradient-to-r from-indigo-500 to-blue-400" />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Expense Limit</span>
-                        <span className="text-xs font-extrabold text-rose-500">{formatCurrency(expenseLimit)}</span>
-                      </div>
-                      <div className="w-full bg-slate-50 h-3 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `${expenseProgress}%` }} className={`h-full ${expenseProgress > 90 ? 'bg-rose-500' : 'bg-gradient-to-r from-rose-400 to-orange-300'}`} />
-                      </div>
-                    </div>
-                  </>
-                )}
-             </div>
           </div>
         </section>
       </div>
