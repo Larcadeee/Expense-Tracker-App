@@ -73,9 +73,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50/50">
       <motion.div 
         layout
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, ease: "circOut" }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 p-10 overflow-hidden"
       >
         <div className="flex flex-col items-center mb-10">

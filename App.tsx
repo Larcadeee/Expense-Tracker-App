@@ -22,6 +22,14 @@ const App: React.FC = () => {
         return;
       }
 
+      // Safety timeout: If Supabase doesn't respond in 6s, force end loading
+      const timeout = setTimeout(() => {
+        if (loading) {
+          console.warn('Initialization timeout - proceeding to app state');
+          setLoading(false);
+        }
+      }, 6000);
+
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -33,6 +41,7 @@ const App: React.FC = () => {
       } catch (err) {
         console.error('Initial session check failed:', err);
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     };
@@ -76,7 +85,6 @@ const App: React.FC = () => {
           expenseLimit: data.expense_limit
         });
       } else {
-        // Fallback for missing profile
         setUser({
           id,
           email: sessionEmail,
