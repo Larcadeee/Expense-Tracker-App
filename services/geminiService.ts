@@ -1,25 +1,28 @@
 
-import { Transaction, AIInsight } from "../types.ts";
+import { GoogleGenAI, Type } from "@google/genai";
+import { Transaction, AIInsight } from "../types";
 
-const getApiKey = () => {
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      return (process.env as any)["API_KEY"];
-    }
-  } catch {
-    return undefined;
-  }
-};
-
+/**
+ * Refactored getFinancialInsights to use the Google GenAI SDK.
+ * Obtained API key from process.env.API_KEY directly as per requirements.
+ * Resolves 'Cannot find name global' by removing the custom helper.
+ */
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
+  const PESO_SYMBOL = '\u20B1'; // Philippine Peso sign
+
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+  if (!process.env.API_KEY) {
     return {
       analysis: "API Key not found. Please set the API_KEY environment variable.",
       forecast: "Unavailable",
-      recommendations: ["Ensure your environment variables are configured correctly."]
+      recommendations: ["Ensure your environment variables are configured correctly."],
+      healthScore: 0,
+      savingsPotential: `${PESO_SYMBOL}0.00`
     };
   }
+
+  // Use this process.env.API_KEY string directly when initializing the @google/genai client instance.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const simplifiedData = transactions.map(t => ({
     date: t.date,
@@ -29,66 +32,80 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
   }));
 
   const prompt = `
-    Analyze the following financial transaction history (Values in Philippine Peso) and provide insights.
+    Perform a professional financial audit on these transactions (Values in Philippine Peso ${PESO_SYMBOL}).
     
     Data: ${JSON.stringify(simplifiedData)}
     
     Tasks:
-    1. Identify spending spikes or unusual patterns.
-    2. Compare income vs expense trends.
-    3. Predict next month's total income and expenses based on these trends.
-    4. Provide 3 actionable financial recommendations tailored for a Philippine context.
-    
-    You must respond with a JSON object containing:
-    - analysis: A string describing spending habits.
-    - forecast: A string describing projections.
-    - recommendations: An array of 3 strings.
+    1. Calculate a "Financial Health Score" (0-100) based on savings rate, spending volatility, and category balance.
+    2. Identify specific "Savings Potential" - an estimated monthly amount (in ${PESO_SYMBOL}) that could be saved by optimizing non-essential spending.
+    3. Analyze behavioral spending patterns.
+    4. Predict next month's cash flow.
+    5. Provide 3 high-impact recommendations for the Philippine market.
   `;
 
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are a professional financial advisor. Return your response in JSON format."
+    // Select gemini-3-pro-preview for complex reasoning and audit tasks.
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: prompt,
+      config: {
+        systemInstruction: "You are a senior financial auditor. Analyze the transaction data and provide a JSON response summarizing the financial health, forecast, and recommendations for a user in the Philippines. You must return the output in JSON format matching the provided schema.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            analysis: {
+              type: Type.STRING,
+              description: "Audit of behavioral spending patterns.",
+            },
+            forecast: {
+              type: Type.STRING,
+              description: "Next month's cash flow projection.",
+            },
+            recommendations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "Array of exactly 3 financial recommendations.",
+            },
+            healthScore: {
+              type: Type.NUMBER,
+              description: "Financial health score (0-100).",
+            },
+            savingsPotential: {
+              type: Type.STRING,
+              description: `Formatted monthly savings potential (e.g. "${PESO_SYMBOL}1,000.00").`,
+            },
           },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.1
-      })
+          required: ["analysis", "forecast", "recommendations", "healthScore", "savingsPotential"],
+        },
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    const content = result.choices[0]?.message?.content;
+    // Access the text property directly (not as a method).
+    const text = response.text;
+    if (!text) throw new Error("No text returned from Gemini API");
     
-    if (!content) throw new Error("Empty response from AI");
-    
-    return JSON.parse(content) as AIInsight;
-  } catch (error) {
-    console.error("AI Insight error:", error);
+    const parsed = JSON.parse(text);
     return {
-      analysis: "Unable to generate AI analysis at this time. Please check your connection.",
+      analysis: parsed.analysis || "Analysis pending.",
+      forecast: parsed.forecast || "Forecast pending.",
+      recommendations: parsed.recommendations || [],
+      healthScore: parsed.healthScore || 50,
+      savingsPotential: parsed.savingsPotential || `${PESO_SYMBOL}0.00`
+    };
+  } catch (error) {
+    console.error("Gemini AI Insight error:", error);
+    return {
+      analysis: "Unable to generate AI analysis at this time.",
       forecast: "Projections currently unavailable.",
       recommendations: [
-        "Maintain a consistent tracking habit.",
-        "Review high-cost categories like Food or Transport.",
-        "Target a 20% savings rate in your next cycle."
-      ]
+        "Maintain consistent tracking.",
+        "Review high-cost categories.",
+        "Target a 20% savings rate."
+      ],
+      healthScore: 0,
+      savingsPotential: `${PESO_SYMBOL}0.00`
     };
   }
 };

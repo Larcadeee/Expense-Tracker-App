@@ -40,4 +40,6 @@ export interface AIInsight {
   analysis: string;
   forecast: string;
   recommendations: string[];
+  healthScore: number;
+  savingsPotential: string;
 }

@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout.tsx';
-import Auth from './pages/Auth.tsx';
-import Dashboard from './pages/Dashboard.tsx';
-import Transactions from './pages/Transactions.tsx';
-import Analytics from './pages/Analytics.tsx';
-import { Transaction, TransactionType, User } from './types.ts';
-import { supabase, isSupabaseConfigured } from './lib/supabase.ts';
+import Layout from './components/Layout';
+import Auth from './pages/Auth';
+import Dashboard from './pages/Dashboard';
+import Transactions from './pages/Transactions';
+import Analytics from './pages/Analytics';
+import { Transaction, TransactionType, User } from './types';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -16,17 +16,25 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setLoading(false);
-      return;
-    }
-
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user.id, session.user.email!);
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) throw sessionError;
+
+        if (session?.user) {
+          await fetchUserProfile(session.user.id, session.user.email!);
+        }
+      } catch (err) {
+        console.error('Initial session check failed:', err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     initSession();
@@ -40,7 +48,9 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -55,15 +65,22 @@ const App: React.FC = () => {
         .from('profiles')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setUser({
           id,
           email: data.email || sessionEmail,
-          name: data.name,
+          name: data.name || 'User',
           savingsGoal: data.savings_goal,
           expenseLimit: data.expense_limit
+        });
+      } else {
+        // Fallback for missing profile
+        setUser({
+          id,
+          email: sessionEmail,
+          name: sessionEmail.split('@')[0],
         });
       }
     } catch (err) {
@@ -80,7 +97,7 @@ const App: React.FC = () => {
         .eq('user_id', user.id)
         .order('date', { ascending: false });
 
-      if (data) {
+      if (data && !error) {
         setTransactions(data.map(t => ({
           id: t.id,
           userId: t.user_id,
@@ -105,60 +122,76 @@ const App: React.FC = () => {
     if (updatedFields.savingsGoal !== undefined) dbFields.savings_goal = updatedFields.savingsGoal;
     if (updatedFields.expenseLimit !== undefined) dbFields.expense_limit = updatedFields.expenseLimit;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(dbFields)
-      .eq('id', user.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(dbFields)
+        .eq('id', user.id);
 
-    if (!error) {
-      setUser(prev => prev ? { ...prev, ...updatedFields } : null);
+      if (!error) {
+        setUser(prev => prev ? { ...prev, ...updatedFields } : null);
+      }
+    } catch (err) {
+      console.error('Update profile error:', err);
     }
   };
 
   const handleAddTransaction = async (t: Omit<Transaction, 'id' | 'createdAt'>) => {
     if (!user) return;
     
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([{
-        user_id: user.id,
-        type: t.type,
-        amount: t.amount,
-        category: t.category,
-        date: t.date,
-        notes: t.notes
-      }])
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          type: t.type,
+          amount: t.amount,
+          category: t.category,
+          date: t.date,
+          notes: t.notes
+        }])
+        .select()
+        .single();
 
-    if (data && !error) {
-      const newT: Transaction = {
-        id: data.id,
-        userId: data.user_id,
-        type: data.type as TransactionType,
-        amount: parseFloat(data.amount),
-        category: data.category,
-        date: data.date,
-        notes: data.notes,
-        createdAt: data.created_at
-      };
-      setTransactions([newT, ...transactions]);
+      if (data && !error) {
+        const newT: Transaction = {
+          id: data.id,
+          userId: data.user_id,
+          type: data.type as TransactionType,
+          amount: parseFloat(data.amount),
+          category: data.category,
+          date: data.date,
+          notes: data.notes,
+          createdAt: data.created_at
+        };
+        setTransactions([newT, ...transactions]);
+      }
+    } catch (err) {
+      console.error('Add transaction error:', err);
     }
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', id);
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
 
-    if (!error) {
-      setTransactions(transactions.filter(t => t.id !== id));
+      if (!error) {
+        setTransactions(transactions.filter(t => t.id !== id));
+      }
+    } catch (err) {
+      console.error('Delete transaction error:', err);
     }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
 
   if (loading) {
