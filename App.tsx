@@ -17,7 +17,6 @@ const App: React.FC = () => {
 
   const fetchData = useCallback(async (userId: string) => {
     try {
-      // Parallel fetch for speed
       const [profileRes, transRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
@@ -60,15 +59,12 @@ const App: React.FC = () => {
       }
 
       try {
-        // Fast-path session check
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session?.user && isMounted) {
-          // If we have a session, fetch data immediately but don't block the initial layout render if possible
           await fetchData(session.user.id);
         }
       } catch (err) {
-        console.warn('Initial session check failed, falling back to Auth.');
+        console.warn('Initial session check failed.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -103,18 +99,32 @@ const App: React.FC = () => {
     } catch (err) { console.error(err); }
   };
 
-  const handleAddTransaction = async (t: Omit<Transaction, 'id' | 'createdAt'>) => {
-    if (!user) return;
+  const handleAddTransactions = async (newItems: Omit<Transaction, 'id' | 'createdAt'>[]) => {
+    if (!user || newItems.length === 0) return;
     try {
-      const { data, error } = await supabase.from('transactions').insert([{
-        user_id: user.id, type: t.type, amount: t.amount, category: t.category, date: t.date, notes: t.notes
-      }]).select().single();
+      const payload = newItems.map(t => ({
+        user_id: user.id,
+        type: t.type,
+        amount: t.amount,
+        category: t.category,
+        date: t.date,
+        notes: t.notes
+      }));
+
+      const { data, error } = await supabase.from('transactions').insert(payload).select();
+      
       if (data && !error) {
-        setTransactions(prev => [{
-          id: data.id, userId: data.user_id, type: data.type as TransactionType,
-          amount: parseFloat(data.amount), category: data.category, date: data.date, 
-          notes: data.notes, createdAt: data.created_at
-        }, ...prev]);
+        const added = data.map(d => ({
+          id: d.id,
+          userId: d.user_id,
+          type: d.type as TransactionType,
+          amount: parseFloat(d.amount),
+          category: d.category,
+          date: d.date,
+          notes: d.notes,
+          createdAt: d.created_at
+        }));
+        setTransactions(prev => [...added, ...prev]);
       }
     } catch (err) { console.error(err); }
   };
@@ -164,7 +174,7 @@ const App: React.FC = () => {
           ) : (
             <>
               <Route path="/" element={<Dashboard transactions={transactions} user={user} onUpdateUser={handleUpdateUser} />} />
-              <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />} />
+              <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransactions} onDelete={handleDeleteTransaction} />} />
               <Route path="/analytics" element={<Analytics transactions={transactions} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </>
