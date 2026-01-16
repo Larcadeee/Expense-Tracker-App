@@ -3,35 +3,42 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, AIInsight } from "../types.ts";
 
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
-  // CRITICAL: Initialize inside the function to ensure process.env.API_KEY is captured correctly in production environments
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Obtain the key directly from the environment variable as required.
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING");
+  }
+
+  // Create instance right before use to ensure it uses the most up-to-date key
+  const ai = new GoogleGenAI({ apiKey });
   
   if (!transactions || transactions.length === 0) {
     throw new Error("No transactions to analyze.");
   }
 
-  // Create a condensed summary to keep the context window focused and efficient
+  // Condense transaction data to minimize token usage and stay within limits
   const summary = transactions.slice(0, 40).map(t => ({
-    type: t.type,
-    amount: t.amount,
-    category: t.category,
-    date: t.date,
-    notes: t.notes || ''
+    t: t.type === 'INCOME' ? 'IN' : 'OUT',
+    a: t.amount,
+    c: t.category,
+    d: t.date,
+    n: t.notes || ''
   }));
 
-  const prompt = `Act as a senior financial analyst. Analyze these transactions for a user in the Philippines (PHP/₱).
-    Transaction Data: ${JSON.stringify(summary)}
+  const prompt = `Act as a professional financial advisor. Analyze these transactions for a user in the Philippines (PHP/₱).
+    Data: ${JSON.stringify(summary)}
     
-    Required Output:
-    1. healthScore: A number (0-100) representing financial stability.
-    2. analysis: A concise breakdown of spending patterns.
-    3. forecast: Predicted financial outlook for next month.
-    4. recommendations: 3 specific, actionable steps to improve savings.
-    5. savingsPotential: Estimated monthly amount that could be saved (e.g., "₱2,500.00").`;
+    Return a JSON object with:
+    - healthScore: Number (0-100)
+    - analysis: String (max 2 sentences)
+    - forecast: String (1 sentence)
+    - recommendations: Array of 3 strings
+    - savingsPotential: String (e.g., "₱1,500.00")`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // Upgraded to Pro for superior reasoning in financial audits
+      model: "gemini-3-flash-preview", // Switched to Flash for better production stability
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -54,18 +61,17 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     });
 
     const text = response.text;
-    if (!text) throw new Error("The AI returned an empty response.");
+    if (!text) throw new Error("AI returned an empty response.");
     
-    // Attempt to parse; if it fails, the catch block will handle it
     return JSON.parse(text) as AIInsight;
   } catch (error: any) {
     console.error("Gemini Insight Error:", error);
     
-    // Provide user-friendly specific errors
-    if (error.message?.includes('403')) throw new Error("API access denied. Please check project billing and key permissions.");
-    if (error.message?.includes('429')) throw new Error("AI is busy right now (Rate Limit). Please try again in 30 seconds.");
-    if (error.message?.includes('API_KEY_INVALID')) throw new Error("The provided API Key is invalid.");
+    // Handle specific error codes or messages for UI feedback
+    if (error.message?.includes('API Key must be set') || error.message?.includes('API_KEY_INVALID')) {
+      throw new Error("API_KEY_INVALID");
+    }
     
-    throw new Error(error.message || "An unexpected error occurred during AI analysis.");
+    throw new Error(error.message || "An error occurred during AI analysis.");
   }
 };

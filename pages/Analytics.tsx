@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, TransactionType, AIInsight } from '../types.ts';
 import { getFinancialInsights } from '../services/geminiService.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit, RefreshCw } from 'lucide-react';
+import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit, RefreshCw, Key, ExternalLink } from 'lucide-react';
 
 interface AnalyticsProps {
   transactions: Transaction[];
@@ -14,6 +14,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
   const [aiData, setAiData] = useState<AIInsight | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsKey, setNeedsKey] = useState(false);
 
   const chartData = useMemo(() => {
     if (transactions.length === 0) return null;
@@ -32,11 +33,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
     if (transactions.length === 0) return;
     setLoading(true);
     setError(null);
+    setNeedsKey(false);
     try {
       const insights = await getFinancialInsights(transactions);
       setAiData(insights);
     } catch (err: any) {
-      setError(err.message || "Failed to generate AI audit. Please try again.");
+      if (err.message === 'API_KEY_MISSING' || err.message === 'API_KEY_INVALID' || err.message?.includes('API Key must be set')) {
+        setNeedsKey(true);
+        setError("Gemini API key is required for AI Insights.");
+      } else {
+        setError(err.message || "Failed to generate AI audit.");
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +52,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
   useEffect(() => {
     fetchAI();
   }, [fetchAI]);
+
+  const handleConnectKey = async () => {
+    if ((window as any).aistudio) {
+      await (window as any).aistudio.openSelectKey();
+      // Assume success and retry
+      fetchAI();
+    } else {
+      setError("AI Studio key selection is not available in this environment.");
+    }
+  };
 
   const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#8b5cf6'];
 
@@ -68,7 +85,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
           <p className="text-slate-500 font-medium text-sm">Gemini AI powered audit of your spending behavior.</p>
         </div>
         <div className="flex items-center gap-2">
-          {!loading && (
+          {!loading && !needsKey && (
             <button 
               onClick={fetchAI}
               className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
@@ -86,17 +103,45 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
 
       <AnimatePresence mode="wait">
         {error && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center justify-between gap-4 text-rose-600">
-            <div className="flex items-center gap-4">
-              <AlertCircle size={24} />
-              <p className="text-sm font-bold">{error}</p>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] shadow-xl space-y-6">
+            <div className="flex items-start gap-4 text-rose-600">
+              <AlertCircle size={24} className="mt-1" />
+              <div>
+                <p className="text-lg font-extrabold text-slate-900">{needsKey ? "Connection Required" : "Analysis Interrupted"}</p>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed mt-1">
+                  {needsKey 
+                    ? "To use the AI-powered financial audit, you must select an API key from a paid Google Cloud Project." 
+                    : error}
+                </p>
+                {needsKey && (
+                  <a 
+                    href="https://ai.google.dev/gemini-api/docs/billing" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-4 hover:underline"
+                  >
+                    View Billing Documentation <ExternalLink size={12} />
+                  </a>
+                )}
+              </div>
             </div>
-            <button 
-              onClick={fetchAI} 
-              className="px-4 py-2 bg-white border border-rose-200 rounded-xl text-xs font-black uppercase hover:bg-rose-100 transition-colors"
-            >
-              Retry Analysis
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-50">
+              {needsKey ? (
+                <button 
+                  onClick={handleConnectKey}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+                >
+                  <Key size={16} /> Connect Gemini AI
+                </button>
+              ) : (
+                <button 
+                  onClick={fetchAI}
+                  className="flex-1 bg-slate-900 hover:bg-black text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all"
+                >
+                  Retry Analysis
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
