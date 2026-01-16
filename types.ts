@@ -36,6 +36,7 @@ export interface FinancialMetrics {
   avgDailyExpense: number;
 }
 
+// Fixed: Renamed from CalculatedInsight to AIInsight to match geminiService usage and fulfill missing export
 export interface AIInsight {
   analysis: string;
   forecast: string;

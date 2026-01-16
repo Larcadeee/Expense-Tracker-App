@@ -3,15 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, AIInsight } from "../types.ts";
 
 export const getFinancialInsights = async (transactions: Transaction[]): Promise<AIInsight> => {
-  // Use the API key exclusively from the environment variable process.env.API_KEY
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey.trim() === "") {
-    throw new Error("API_KEY_REQUIRED");
-  }
-
-  // Initialize the GenAI client with the current key
-  const ai = new GoogleGenAI({ apiKey });
+  // Always initialize the GoogleGenAI instance with the API key from process.env.API_KEY as per coding standards.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   if (!transactions || transactions.length === 0) {
     throw new Error("No data available to analyze.");
@@ -68,7 +61,7 @@ export const getFinancialInsights = async (transactions: Transaction[]): Promise
     console.error("Gemini Analysis Error:", error);
     
     const msg = error.message || "";
-    // Check for common auth/key errors in production
+    // Check for common auth/key errors in production and provide a uniform error code
     if (msg.includes('API Key') || msg.includes('403') || msg.includes('401') || msg.includes('entity was not found')) {
       throw new Error("API_KEY_REQUIRED");
     }

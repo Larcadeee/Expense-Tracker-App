@@ -1,14 +1,24 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout.tsx';
 import Auth from './pages/Auth.tsx';
-import Dashboard from './pages/Dashboard.tsx';
-import Transactions from './pages/Transactions.tsx';
-import Analytics from './pages/Analytics.tsx';
 import { Transaction, TransactionType, User } from './types.ts';
 import { supabase, isSupabaseConfigured } from './lib/supabase.ts';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
+
+// Lazy load pages to split the bundle and speed up initial load
+const Dashboard = lazy(() => import('./pages/Dashboard.tsx'));
+const Transactions = lazy(() => import('./pages/Transactions.tsx'));
+const Analytics = lazy(() => import('./pages/Analytics.tsx'));
+
+// Lightweight fallback for lazy loading components
+const PageLoader = () => (
+  <div className="w-full h-[60vh] flex flex-col items-center justify-center">
+    <Loader2 className="animate-spin text-indigo-600 mb-4" size={32} />
+    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Loading Module...</p>
+  </div>
+);
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -168,18 +178,20 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <Layout user={user} onLogout={handleLogout}>
-        <Routes>
-          {!user ? (
-            <Route path="*" element={<Auth onLogin={() => {}} />} />
-          ) : (
-            <>
-              <Route path="/" element={<Dashboard transactions={transactions} user={user} onUpdateUser={handleUpdateUser} />} />
-              <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransactions} onDelete={handleDeleteTransaction} />} />
-              <Route path="/analytics" element={<Analytics transactions={transactions} />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {!user ? (
+              <Route path="*" element={<Auth onLogin={() => {}} />} />
+            ) : (
+              <>
+                <Route path="/" element={<Dashboard transactions={transactions} user={user} onUpdateUser={handleUpdateUser} />} />
+                <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransactions} onDelete={handleDeleteTransaction} />} />
+                <Route path="/analytics" element={<Analytics transactions={transactions} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            )}
+          </Routes>
+        </Suspense>
       </Layout>
     </HashRouter>
   );
