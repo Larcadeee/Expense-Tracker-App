@@ -60,15 +60,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
   const handleConnectKey = async () => {
     const aistudio = (window as any).aistudio;
     if (aistudio) {
-      try {
-        await aistudio.openSelectKey();
-        // Assume selection was successful and attempt analysis
-        fetchAI();
-      } catch (err) {
-        setError("Connection process interrupted.");
-      }
+      await aistudio.openSelectKey();
+      // Proceed immediately to try and use the new key
+      fetchAI();
     } else {
-      setError("AI Service connection is unavailable in this environment.");
+      setError("AI Studio selector is unavailable.");
     }
   };
 
@@ -122,11 +118,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
               <AlertCircle size={24} className="mt-1" />
               <div className="flex-1">
                 <p className="text-lg font-extrabold text-slate-900">
-                  {needsKey ? "Free AI Connection Needed" : "Analysis Halted"}
+                  {needsKey ? "Connection Required" : "Audit Interrupted"}
                 </p>
                 <p className="text-sm text-slate-500 font-medium leading-relaxed mt-1">
                   {needsKey 
-                    ? "To unlock the free Gemini Flash analysis, you must manually connect an API key. This key must belong to a project with billing enabled (usage for this model is generally free within tier limits)." 
+                    ? "To unlock AI insights, you must select an API key from a paid Google Cloud Project. This ensures consistent performance and data accuracy." 
                     : error}
                 </p>
                 {needsKey && (
@@ -136,7 +132,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-4 hover:underline"
                   >
-                    View Pricing & Billing Info <ExternalLink size={12} />
+                    View Billing Documentation <ExternalLink size={12} />
                   </a>
                 )}
               </div>
