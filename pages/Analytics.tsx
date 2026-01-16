@@ -1,10 +1,10 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, TransactionType, AIInsight } from '../types.ts';
 import { getFinancialInsights } from '../services/geminiService.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit } from 'lucide-react';
+import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit, RefreshCw } from 'lucide-react';
 
 interface AnalyticsProps {
   transactions: Transaction[];
@@ -15,9 +15,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const PESO_SYMBOL = '₱';
-
-  // Deterministic local data for charts (stays fast and interactive)
+  // Deterministic local data for charts
   const chartData = useMemo(() => {
     if (transactions.length === 0) return null;
 
@@ -35,24 +33,24 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
     return { income, expense, categories };
   }, [transactions]);
 
-  // Fetch AI Insights
-  useEffect(() => {
-    const fetchAI = async () => {
-      if (transactions.length === 0) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const insights = await getFinancialInsights(transactions);
-        setAiData(insights);
-      } catch (err) {
-        setError("Failed to generate AI audit. Please check your connection.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAI();
+  const fetchAI = useCallback(async () => {
+    if (transactions.length === 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const insights = await getFinancialInsights(transactions);
+      setAiData(insights);
+    } catch (err: any) {
+      console.error("Analytics Error:", err);
+      setError(err.message || "Failed to generate AI audit. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   }, [transactions]);
+
+  useEffect(() => {
+    fetchAI();
+  }, [fetchAI]);
 
   const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#8b5cf6'];
 
@@ -76,10 +74,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
           <p className="text-slate-500 font-medium text-sm">Gemini AI powered audit of your spending behavior.</p>
         </div>
         <div className="flex items-center gap-2">
-          {loading && (
+          {loading ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold animate-pulse">
-              <Loader2 size={14} className="animate-spin" /> Analyzing Patterns...
+              <Loader2 size={14} className="animate-spin" /> Analyzing...
             </div>
+          ) : (
+            <button 
+              onClick={fetchAI}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-bold transition-colors"
+            >
+              <RefreshCw size={14} /> Re-analyze
+            </button>
           )}
           <div className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-slate-200">
             <BrainCircuit size={18} />
@@ -90,9 +95,22 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
 
       <AnimatePresence mode="wait">
         {error && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-600">
-            <AlertCircle size={24} />
-            <p className="text-sm font-bold">{error}</p>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center justify-between gap-4 text-rose-600"
+          >
+            <div className="flex items-center gap-4">
+              <AlertCircle size={24} />
+              <p className="text-sm font-bold">{error}</p>
+            </div>
+            <button 
+              onClick={fetchAI}
+              className="px-4 py-2 bg-white border border-rose-100 rounded-xl text-xs font-bold hover:bg-rose-100 transition-colors"
+            >
+              Try Again
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -130,7 +148,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col items-center text-center">
           <div className="mb-4 p-3 bg-indigo-50 rounded-2xl text-indigo-600"><Zap size={24} /></div>
           <p className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase mb-2">Strategy Tier</p>
-          <h3 className="text-3xl font-black text-slate-900">{loading ? '---' : (aiData ? (aiData.healthScore > 80 ? 'ELITE' : aiData.healthScore > 50 ? 'STABLE' : 'ACTION REQ.') : '--')}</h3>
+          <h3 className="text-3xl font-black text-slate-900">
+            {loading ? '---' : (aiData ? (aiData.healthScore > 80 ? 'ELITE' : aiData.healthScore > 50 ? 'STABLE' : 'ACTION REQ.') : '--')}
+          </h3>
           <div className="flex items-center gap-1 text-slate-400 mt-4"><ArrowUpRight size={14} /><span className="text-[10px] font-bold uppercase">AI Dynamic Ranking</span></div>
         </motion.div>
       </div>
