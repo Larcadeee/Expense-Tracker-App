@@ -1,14 +1,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Robust environment variable access
 const getEnvVar = (name: string): string => {
-  // Try various common locations for environment variables in browser/bundler environments
   const val = (typeof process !== 'undefined' && process.env ? process.env[name] : undefined) ||
               (typeof window !== 'undefined' && (window as any).process?.env?.[name]) ||
-              ((import.meta as any).env?.[name]);
-  
-  return val || '';
+              ((import.meta as any).env?.[name]) ||
+              '';
+  return val as string;
 };
 
 const supabaseUrl = getEnvVar('SUPABASE_URL') || 'https://izrmwlqkejbrhwttlcyd.supabase.co';
@@ -18,7 +16,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
   }
 });
 
-export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('placeholder'));
+export const isSupabaseConfigured = !!supabaseUrl && 
+                                   supabaseUrl.startsWith('http') && 
+                                   !supabaseUrl.includes('placeholder');

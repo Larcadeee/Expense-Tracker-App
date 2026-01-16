@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout.tsx';
 import Auth from './pages/Auth.tsx';
@@ -8,48 +8,33 @@ import Transactions from './pages/Transactions.tsx';
 import Analytics from './pages/Analytics.tsx';
 import { Transaction, TransactionType, User } from './types.ts';
 import { supabase, isSupabaseConfigured } from './lib/supabase.ts';
-import { AlertCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (id: string, sessionEmail: string) => {
+  const fetchData = useCallback(async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+      // Parallel fetch for speed
+      const [profileRes, transRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
+      ]);
 
-      if (data && !error) {
+      if (profileRes.data) {
         setUser({
-          id,
-          email: data.email || sessionEmail,
-          name: data.name || 'User',
-          savingsGoal: data.savings_goal,
-          expenseLimit: data.expense_limit
+          id: userId,
+          email: profileRes.data.email || '',
+          name: profileRes.data.name || 'User',
+          savingsGoal: profileRes.data.savings_goal,
+          expenseLimit: profileRes.data.expense_limit
         });
-      } else {
-        setUser({ id, email: sessionEmail, name: sessionEmail.split('@')[0] });
       }
-    } catch (err) {
-      console.error('Profile fetch failed:', err);
-    }
-  };
 
-  const fetchTransactions = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
-
-      if (data && !error) {
-        setTransactions(data.map(t => ({
+      if (transRes.data) {
+        setTransactions(transRes.data.map(t => ({
           id: t.id,
           userId: t.user_id,
           type: t.type as TransactionType,
@@ -61,40 +46,41 @@ const App: React.FC = () => {
         })));
       }
     } catch (err) {
-      console.error('Transaction fetch failed:', err);
+      console.error('Data sync failed:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const initSession = async () => {
+    let isMounted = true;
+
+    const init = async () => {
       if (!isSupabaseConfigured) {
-        setLoading(false);
+        if (isMounted) setLoading(false);
         return;
       }
 
-      // Aggressive timeout: reveal UI after 4s even if session check is hanging
-      const timeoutId = setTimeout(() => {
-        setLoading(false);
-      }, 4000);
-
       try {
+        // Fast-path session check
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await fetchUserProfile(session.user.id, session.user.email!);
+        
+        if (session?.user && isMounted) {
+          // If we have a session, fetch data immediately but don't block the initial layout render if possible
+          await fetchData(session.user.id);
         }
       } catch (err) {
-        console.error('Boot error:', err);
+        console.warn('Initial session check failed, falling back to Auth.');
       } finally {
-        clearTimeout(timeoutId);
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    initSession();
+    init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        await fetchUserProfile(session.user.id, session.user.email!);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          fetchData(session.user.id);
+        }
       } else {
         setUser(null);
         setTransactions([]);
@@ -102,13 +88,10 @@ const App: React.FC = () => {
     });
 
     return () => {
-      if (subscription) subscription.unsubscribe();
+      isMounted = false;
+      subscription.unsubscribe();
     };
-  }, []);
-
-  useEffect(() => {
-    if (user) fetchTransactions();
-  }, [user]);
+  }, [fetchData]);
 
   const handleUpdateUser = async (updatedFields: Partial<User>) => {
     if (!user) return;
@@ -127,11 +110,11 @@ const App: React.FC = () => {
         user_id: user.id, type: t.type, amount: t.amount, category: t.category, date: t.date, notes: t.notes
       }]).select().single();
       if (data && !error) {
-        setTransactions([{
+        setTransactions(prev => [{
           id: data.id, userId: data.user_id, type: data.type as TransactionType,
           amount: parseFloat(data.amount), category: data.category, date: data.date, 
           notes: data.notes, createdAt: data.created_at
-        }, ...transactions]);
+        }, ...prev]);
       }
     } catch (err) { console.error(err); }
   };
@@ -139,7 +122,7 @@ const App: React.FC = () => {
   const handleDeleteTransaction = async (id: string) => {
     try {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
-      if (!error) setTransactions(transactions.filter(t => t.id !== id));
+      if (!error) setTransactions(prev => prev.filter(t => t.id !== id));
     } catch (err) { console.error(err); }
   };
 
@@ -149,8 +132,11 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-[3px] border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Wallet</p>
+        </div>
       </div>
     );
   }
@@ -158,15 +144,12 @@ const App: React.FC = () => {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="max-w-sm w-full bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-10 text-center">
-          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto mb-6">
-            <AlertCircle size={32} />
+        <div className="max-w-sm w-full bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-10 text-center">
+          <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto mb-6">
+            <AlertCircle size={24} />
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 mb-2 uppercase tracking-tight">Configuration Error</h2>
-          <p className="text-slate-500 text-sm font-medium mb-8">Connection to data layer failed. Please check your Supabase environment variables.</p>
-          <a href="https://supabase.com" target="_blank" className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 transition-all hover:scale-[1.02]">
-            Dashboard <ExternalLink size={16} />
-          </a>
+          <h2 className="text-lg font-extrabold text-slate-900 mb-2">Configuration Required</h2>
+          <p className="text-slate-500 text-sm mb-8">Please set your Supabase environment variables to begin tracking.</p>
         </div>
       </div>
     );
@@ -183,7 +166,7 @@ const App: React.FC = () => {
               <Route path="/" element={<Dashboard transactions={transactions} user={user} onUpdateUser={handleUpdateUser} />} />
               <Route path="/transactions" element={<Transactions transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />} />
               <Route path="/analytics" element={<Analytics transactions={transactions} />} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </>
           )}
         </Routes>
