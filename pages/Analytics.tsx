@@ -1,10 +1,10 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Transaction, TransactionType, AIInsight } from '../types.ts';
 import { getFinancialInsights } from '../services/geminiService.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit } from 'lucide-react';
+import { Sparkles, Lightbulb, TrendingUp, ShieldCheck, Target, Zap, ArrowUpRight, BarChart3, Wallet, Loader2, AlertCircle, BrainCircuit, RefreshCw } from 'lucide-react';
 
 interface AnalyticsProps {
   transactions: Transaction[];
@@ -15,44 +15,36 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const PESO_SYMBOL = '₱';
-
-  // Deterministic local data for charts (stays fast and interactive)
   const chartData = useMemo(() => {
     if (transactions.length === 0) return null;
-
     const income = transactions.filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + t.amount, 0);
     const expense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + t.amount, 0);
-    
     const catMap = new Map<string, number>();
     transactions.filter(t => t.type === TransactionType.EXPENSE).forEach(e => {
       catMap.set(e.category, (catMap.get(e.category) || 0) + e.amount);
     });
-    
     const categories = Array.from(catMap.entries()).map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-
     return { income, expense, categories };
   }, [transactions]);
 
-  // Fetch AI Insights
-  useEffect(() => {
-    const fetchAI = async () => {
-      if (transactions.length === 0) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const insights = await getFinancialInsights(transactions);
-        setAiData(insights);
-      } catch (err) {
-        setError("Failed to generate AI audit. Please check your connection.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAI();
+  const fetchAI = useCallback(async () => {
+    if (transactions.length === 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const insights = await getFinancialInsights(transactions);
+      setAiData(insights);
+    } catch (err: any) {
+      setError(err.message || "Failed to generate AI audit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }, [transactions]);
+
+  useEffect(() => {
+    fetchAI();
+  }, [fetchAI]);
 
   const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#06b6d4', '#8b5cf6'];
 
@@ -76,10 +68,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
           <p className="text-slate-500 font-medium text-sm">Gemini AI powered audit of your spending behavior.</p>
         </div>
         <div className="flex items-center gap-2">
-          {loading && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold animate-pulse">
-              <Loader2 size={14} className="animate-spin" /> Analyzing Patterns...
-            </div>
+          {!loading && (
+            <button 
+              onClick={fetchAI}
+              className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+              title="Refresh AI Audit"
+            >
+              <RefreshCw size={18} />
+            </button>
           )}
           <div className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-slate-200">
             <BrainCircuit size={18} />
@@ -90,9 +86,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ transactions }) => {
 
       <AnimatePresence mode="wait">
         {error && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-600">
-            <AlertCircle size={24} />
-            <p className="text-sm font-bold">{error}</p>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center justify-between gap-4 text-rose-600">
+            <div className="flex items-center gap-4">
+              <AlertCircle size={24} />
+              <p className="text-sm font-bold">{error}</p>
+            </div>
+            <button 
+              onClick={fetchAI} 
+              className="px-4 py-2 bg-white border border-rose-200 rounded-xl text-xs font-black uppercase hover:bg-rose-100 transition-colors"
+            >
+              Retry Analysis
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
